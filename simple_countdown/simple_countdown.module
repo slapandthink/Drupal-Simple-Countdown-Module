@@ -1,0 +1,182 @@
+<?php
+
+/**
+ * @file
+ * A block module tha diplays a simple countdown.
+ */
+
+/**
+ * Hook implementation: HELP
+ * @param string $path
+ *   Which parh of the site we're using to display help
+ * @param array $arg
+ *   Array that holds the current path as returned from arg() function
+ */
+function simple_countdown_help($path, $arg){
+	switch($path){
+		case "admin/help#simple_countdown":
+			return '<p>'.t("Displays links a simple countdown.").'</p>';
+			break;
+	}
+}
+
+/**
+ * Hook implementation:  BLOCK INFO
+ * Declaring the block in : structure->blocks
+ */
+function simple_countdown_block_info(){
+	$blocks['simple_countdown'] = array(
+		'info'  => t('Simple Countdown'), // The name that will appear in the block list.
+		'cache' => DRUPAL_CACHE_PER_ROLE, // Default
+		);
+
+	return $blocks;
+}
+
+/**
+ * Custom content function.
+ * Retrive the time reference and calculate the time remaining
+ * for the countdown.
+ * @return array $countdown
+ *   A result with the countdown date information.
+ */
+function simple_countdown_contents(){
+	// Get today's date.
+	$today = time();
+
+	$countdown = array();
+	// Retrieve data from the database: the final time for the countdown and the related link.
+	$end               = variable_get('simple_countdown_date', 0);
+	$countdown['link'] = variable_get('simple_countdown_link', '#');
+
+	if($end != 0){
+		$end = strtotime($end);
+	}
+	// Calculating the difference
+	$secondsLeft       = $end - $today;
+
+
+
+	// Calculating days and hours remaining
+	$countdown['days']  = floor($secondsLeft / (60*60*24));
+	$countdown['hours'] = floor(($secondsLeft - $countdown['days']*(60*60*24)) / (60*60));
+
+	return $countdown;
+}
+
+/**
+ * Hook implementation: BLOCK VIEW
+ * @return array $block
+ *   Contain all information about block module and so, posts information.
+ */
+function simple_countdown_block_view($delta = ''){
+	switch($delta){
+		case 'simple_countdown':
+		$block['subject'] = t('Simple Countdown');
+		if(user_access('access content')){
+			// Retrieve and process data here.
+
+			// Use our custom function to retrieve data.
+			$countdown = simple_countdown_contents();
+
+			if($countdown['days'] <= 0 AND $countdown['hours'] <= 0){ // Countdown is outdated.
+				$block['content'] = t('No event.');
+			}else{
+				// Pass data through theme function.
+				$block['content'] = '<div class="simple_countdown"><p><a href="'.$countdown['link'].'" title="'.t('More informations').'">'.$countdown['days'].' day(s) and '.$countdown['hours'].' hour(s) left. </a></p></div>';
+			}
+		}
+
+		return $block;
+	}
+}
+
+/**
+ * Hook implementation: MENU
+ * Add the link to the module configuration page.
+ * Add an amdin page for the module and create a page that lists all 
+ * the content that was created in the last week.
+ * @return array $items
+ */
+function simple_countdown_menu(){
+	$items = array();
+
+	// Add the link to the configuration page
+	$items['admin/config/content/simple_countdown'] = array(
+		'title'            => 'Simple Countdown',
+		'descripion'       => 'Configuration for the Simple Countdown module',
+		'page callback'    => 'drupal_get_form',
+		'page arguments'   => array('simple_countdown_form'),
+		'access arguments' => array('access administration pages'),
+		'type'             => MENU_NORMAL_ITEM,
+		);
+
+	// Add the page
+	$item['simple_countdown'] = array(
+		'title'            => 'Simple Countdown',
+		'page callback'    => '_current_posts_page',
+		'access arguments' => array('access simple_countdown content'),
+		'type'             => MENU_CALLBACK, // Will appear in Navigation menu.
+		);
+
+	return $items;
+}
+
+/**
+ * Hook implementation: FORM
+ * Page callback: Current posts settings
+ * @see current_posts_menu()
+ * @param array $form
+ *  A structured array containing the elements and properties of the form.
+ * @param array $form_state
+ *   An array that stores information about the form's current state during processing.
+ * @return array
+ */
+function simple_countdown_form($form, &$form_stat){
+	$form['simple_countdown_date'] = array(
+		'#type'          => 'textfield',
+		'#title'         => t('End date'),
+		'#default_value' => variable_get('simple_countdown_date', date("Y-m-d")),
+		'#description'   => t('Date format: yyyy-mm-dd. <br />Date of the end for the countdown.'),
+		'#required'      => TRUE,
+	);
+
+	$form['simple_countdown_link'] = array(
+		'#type'          => 'textfield',
+		'#title'         => t('Related link to the countdown'),
+		'#default_value' => variable_get('simple_countdown_link', '#'),
+		'#description'   => t('Enter the link to display to know more on the countdown.'),
+		'#required'      => TRUE,
+	);
+
+	return system_settings_form($form);
+}
+
+/**
+ * Hook implementation: FORM VALIDATE
+ * Validate the form entries.
+ * @param array $form
+ *   A structured array containing the elements and properties of the form.
+ * @param array $form_state
+ *   An array that stores information about the form's current state during processing.
+ */
+function simple_countdown_form_validate($form, &$form_state){
+	$date = $form_state['values']['simple_countdown_date'];
+	if(time() > strtotime($date)){
+		form_set_error('simple_countdown', t('You must enter a future date.'));
+	}
+}
+
+/**
+ * Hook implementation: PERMISSION
+ * Create a new permission.
+ * @return array
+ */
+function simple_countdown_permission(){
+	return array(
+		'access simple_countdown content' => array(
+			'title' => t('Access content for the Simple Countdown module'),
+			)
+		);
+}
+

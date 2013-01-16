@@ -1,0 +1,6 @@
+name = Simple Countdown
+description = This module provides a simple countdown.
+core = 7.x
+
+; Add the configure button.
+configure = admin/config/content/simple_countdown
